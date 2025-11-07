@@ -13,3 +13,5 @@ stop-upload
 themes/*
 !themes/default
 !themes/default/*
+!themes/hacker
+!themes/hacker/*

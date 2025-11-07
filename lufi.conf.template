@@ -37,8 +37,8 @@
     #instance_name => 'Lufi',
 
     # Choose a theme. See the available themes in `themes` directory
-    # Optional, default is 'default'
-    #theme         => 'default',
+    # Optional, default is 'default'. Try `hacker` for a neon cyberpunk look.
+    #theme         => 'hacker',
 
     # Length of the random URL
     # optional, default is 8

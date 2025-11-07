@@ -66,6 +66,10 @@ Lufi comes with several languages.
 
 Please, see [this wiki page](https://framagit.org/fiat-tux/hat-softwares/lufi/wikis/contribute#internationalization) to know how to contribute to internationalization.
 
+## Themes
+
+Switch the look and feel by choosing a theme in `lufi.conf`. Set `theme => 'hacker'` to enable the neon cyberpunk interface, or keep `theme => 'default'` for the classic appearance.
+
 ## Authors
 
 See [AUTHORS.md](AUTHORS.md) file.
