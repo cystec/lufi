@@ -115,9 +115,6 @@
               <li<%== ' class="current"' if current_route eq 'about' %>>
                 <a href="<%= url_for('about') %>">About</a>
               </li>
-              <li<%== ' class="current"' if current_route eq 'privacy' %>>
-                <a href="<%= url_for('privacy') %>">Privacy</a>
-              </li>
             % if ((defined(config('ldap')) || defined(config('htpasswd')) || defined(config('auth_headers'))) && is_user_authenticated()) {
               <li>
                 <form action="<%= url_for('logout') %>" method="POST">
@@ -149,7 +146,6 @@
             <li><a href="<%= url_for('index') %>">Upload</a></li>
             <li><a href="<%= url_for('files') %>">My files</a></li>
             <li><a href="<%= url_for('about') %>">About</a></li>
-            <li><a href="<%= url_for('privacy') %>">Privacy</a></li>
             <li><a href="mailto:shubham@nofile.in">Contact</a></li>
           </ul>
         </nav>

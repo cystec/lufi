@@ -2,6 +2,10 @@
 % stash(page_title => 'About nofile.in | Zero knowledge file sharing');
 % stash(page_description => 'Learn how nofile.in uses client-side AES-GCM encryption, self-destruct links, and private workflows for anonymous file sharing.');
 % stash(canonical_path => '/about');
+% my $contact_info = $self->config('contact');
+% my $report_target = $self->config('report') // 'mailto:shubham@nofile.in';
+% my $report_label  = $report_target;
+%    $report_label  =~ s/^mailto://;
 <section class="stack">
   <h1 class="page-title">About nofile.in</h1>
   <p class="lead">
@@ -9,60 +13,110 @@
     links expire quickly, and the key never leaves the client.
   </p>
 
-  <div class="grid grid-cols-2">
-    <div class="panel">
-      <h2>Why it exists</h2>
-      <p>
-        We built nofile.in for incidents, quick audits, press tips, and any moment when you need to send files without creating accounts
-        or trusting another analytics pipeline. The interface is intentionally quiet so you can focus on the upload.
-      </p>
-      <ul class="list-check">
-        <li>Anonymous uploads without registration</li>
-        <li>Short-lived links and optional self destruct</li>
-        <li>Zero knowledge architecture, even metadata is limited</li>
-        <li>Dark, accessible design tuned for low light environments</li>
-      </ul>
+    <div class="grid grid-cols-2">
+      <div class="panel">
+        <h2>Why it exists</h2>
+        <p>
+          We built nofile.in for incidents, quick audits, press tips, and any moment when you need to send files without creating accounts
+          or trusting another analytics pipeline. The interface is intentionally quiet so you can focus on the upload.
+        </p>
+        <ul class="list-check">
+          <li>Anonymous uploads without registration</li>
+          <li>Short-lived links and optional self destruct</li>
+          <li>Zero knowledge architecture, even metadata is limited</li>
+          <li>Dark, accessible design tuned for low light environments</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h2>How encryption works</h2>
+        <ol class="timeline">
+          <li class="timeline-item">
+            <h4>Generate key pairs</h4>
+            <p>The browser uses Web Crypto to produce a random AES-GCM key plus a fresh IV for every chunk.</p>
+          </li>
+          <li class="timeline-item">
+            <h4>Encrypt then upload</h4>
+            <p>Chunks are encrypted before leaving your device. The server receives only ciphertext, filename, MIME type, and basic retention settings.</p>
+          </li>
+          <li class="timeline-item">
+            <h4>Share full link</h4>
+            <p>The encryption key is base64url encoded and placed after the # fragment. This fragment never touches the server or logs.</p>
+          </li>
+          <li class="timeline-item">
+            <h4>Decrypt locally</h4>
+            <p>Recipients fetch ciphertext, extract the key from the fragment, and decrypt in their browser. Remove the fragment and the file stays unreadable.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2">
+      <div class="panel">
+        <h2>What we store</h2>
+        <p>The server keeps only the metadata required to deliver files and enforce retention windows:</p>
+        <ul class="list-check">
+          <li>Encrypted slices produced by your browser</li>
+          <li>Filename, MIME type, size, and retention settings</li>
+          <li>Optional salted password hash when you set a download password</li>
+          <li>Timestamps, download counter, and the deletion token saved in your localStorage</li>
+        </ul>
+        <p class="muted">Encryption keys never leave the browser. IP addresses are logged when uploads start to satisfy legal retention rules.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Logging and analytics</h2>
+        <p>
+          Operational logs capture a minimal tuple of timestamp, originating IP, HTTP verb, and route so we can debug issues.
+          We do not log fragments or decrypted content, and we do not embed third-party analytics pixels.
+        </p>
+        <p class="muted">Service health relies on aggregated metrics only—no per-user analytics.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2">
+      <div class="panel">
+        <h2>Cookies and local data</h2>
+        <p>
+          nofile.in relies on localStorage to remember uploads created from your current browser. The list contains the moderation token needed to delete files later.
+          Session cookies exist only when you authenticate through LDAP, HTTP headers, or htpasswd integrations.
+        </p>
+        <p class="muted">We do not set tracking cookies.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Abuse and takedowns</h2>
+        <p>
+          Use the report button on any file page or reach out via
+          <a href="<%= $report_target %>"><%= $report_label %></a>
+          with the file ID, filename, and link. Reported files are reviewed quickly and removed when they violate the law or our terms.
+          Deleting a file removes its ciphertext immediately from storage.
+        </p>
+      </div>
     </div>
 
     <div class="panel">
-      <h2>How encryption works</h2>
-      <ol class="timeline">
-        <li class="timeline-item">
-          <h4>Generate key pairs</h4>
-          <p>The browser uses Web Crypto to produce a random AES-GCM key plus a fresh IV for every chunk.</p>
-        </li>
-        <li class="timeline-item">
-          <h4>Encrypt then upload</h4>
-          <p>Chunks are encrypted before leaving your device. The server receives only ciphertext, filename, MIME type, and basic retention settings.</p>
-        </li>
-        <li class="timeline-item">
-          <h4>Share full link</h4>
-          <p>The encryption key is base64url encoded and placed after the # fragment. This fragment never touches the server or logs.</p>
-        </li>
-        <li class="timeline-item">
-          <h4>Decrypt locally</h4>
-          <p>Recipients fetch ciphertext, extract the key from the fragment, and decrypt in their browser. Remove the fragment and the file stays unreadable.</p>
-        </li>
-      </ol>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Responsible use</h2>
-    <p>
-      You are accountable for the content you upload. Do not send malware, illegal material, or anything that violates rights or contracts.
-      Administrators act on abuse reports promptly. Use the report button on any file page to flag harmful content.
-    </p>
-    <div class="callout warning">
+      <h2>Responsible use</h2>
       <p>
-        Keep the fragment secret. Sending screenshots or shortened links often strips the fragment and renders the file unusable for recipients.
-        If you must share the link without the key, send the fragment over a separate channel.
+        You are accountable for the content you upload. Do not send malware, illegal material, or anything that violates rights or contracts.
+        Administrators act on abuse reports promptly—use the in-app report button or email us if something looks off.
       </p>
+      <div class="callout warning">
+        <p>
+          Keep the fragment secret. Sending screenshots or shortened links often strips the fragment and renders the file unusable for recipients.
+          If you must share the link without the key, send the fragment over a separate channel.
+        </p>
+      </div>
     </div>
-  </div>
 
-  <div class="panel">
-    <h2>Contact</h2>
-    <p>Questions or security feedback are welcome at <a href="mailto:shubham@nofile.in">shubham@nofile.in</a>.</p>
-  </div>
+    <div class="panel">
+      <h2>Contact & transparency</h2>
+    % if ($contact_info) {
+      <p><%= $contact_info %></p>
+    % } else {
+      <p>Questions or security feedback are welcome at <a href="mailto:shubham@nofile.in">shubham@nofile.in</a>.</p>
+    % }
+      <p>Abuse reports and urgent issues: <a href="<%= $report_target %>"><%= $report_label %></a></p>
+      <p class="muted">Last updated: 8 November 2025.</p>
+    </div>
 </section>
