@@ -6,27 +6,35 @@ export function normalizeWebSocketUrl(url) {
     return url;
   }
 
+  const isSecureContext = typeof window !== 'undefined' && window.location.protocol === 'https:';
+
   try {
     const parsed = new URL(url, window.location.origin);
-    if (parsed.protocol === 'https:') {
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === '') {
+      parsed.protocol = isSecureContext ? 'wss:' : 'ws:';
+    } else if (parsed.protocol === 'ws:' && isSecureContext) {
       parsed.protocol = 'wss:';
-    } else if (parsed.protocol === 'http:') {
-      parsed.protocol = 'ws:';
-    } else if (parsed.protocol === '') {
-      parsed.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    } else if (parsed.protocol === 'wss:' && !isSecureContext) {
+      // Keep secure websocket even on an insecure origin – browsers allow wss from http pages.
     }
     return parsed.toString();
   } catch (error) {
     console.warn('Failed to normalize WebSocket URL', url, error);
     if (typeof url === 'string') {
+      if (url.startsWith('wss://') || url.startsWith('ws://')) {
+        if (isSecureContext && url.startsWith('ws://')) {
+          return `wss://${url.slice('ws://'.length)}`;
+        }
+        return url;
+      }
       if (url.startsWith('https://')) {
         return `wss://${url.slice('https://'.length)}`;
       }
       if (url.startsWith('http://')) {
-        return `ws://${url.slice('http://'.length)}`;
+        return isSecureContext ? `wss://${url.slice('http://'.length)}` : `ws://${url.slice('http://'.length)}`;
       }
       if (url.startsWith('//')) {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const protocol = isSecureContext ? 'wss:' : 'ws:';
         return `${protocol}${url}`;
       }
     }

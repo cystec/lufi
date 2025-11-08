@@ -35,12 +35,20 @@ const passwordInput = document.getElementById('file-pwd');
 const uploadList = document.getElementById('upload-list');
 const uploadSection = document.getElementById('active-uploads');
 
+const MAX_SOCKET_ATTEMPTS = 5;
+const SOCKET_RETRY_BASE_DELAY = 500;
+const SOCKET_RETRY_MAX_DELAY = 4000;
+
 const queue = [];
 let activeUpload = null;
 let websocket = null;
 let websocketReady = null;
 let uploadCounter = 0;
 let pendingGuestPayloads = [];
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 function ensureUploadSectionVisible() {
   if (uploadList.children.length > 0) {
@@ -106,26 +114,87 @@ function enqueueFiles(fileList) {
   startNextUpload();
 }
 
-function ensureWebsocket() {
-  if (websocketReady) {
-    return websocketReady;
+function createWebsocketPromise() {
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(config.wsUrl);
+    websocket = socket;
+    socket.binaryType = 'arraybuffer';
+
+    const cleanupInitial = () => {
+      socket.removeEventListener('open', handleOpen);
+      socket.removeEventListener('error', handleError);
+      socket.removeEventListener('close', handleInitialClose);
+    };
+
+    const handleClose = () => {
+      socket.removeEventListener('message', handleServerMessage);
+      socket.removeEventListener('close', handleClose);
+      if (websocket === socket) {
+        websocket = null;
+      }
+      websocketReady = null;
+    };
+
+    const handleOpen = () => {
+      cleanupInitial();
+      socket.addEventListener('message', handleServerMessage);
+      socket.addEventListener('close', handleClose);
+      resolve(socket);
+    };
+
+    const handleError = (event) => {
+      cleanupInitial();
+      handleClose();
+      reject(new Error('WebSocket connection failed'));
+    };
+
+    const handleInitialClose = () => {
+      cleanupInitial();
+      handleClose();
+      reject(new Error('WebSocket closed before opening'));
+    };
+
+    socket.addEventListener('open', handleOpen, { once: true });
+    socket.addEventListener('error', handleError, { once: true });
+    socket.addEventListener('close', handleInitialClose, { once: true });
+  });
+}
+
+async function ensureWebsocket(attempt = 0) {
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    return websocket;
   }
 
-  websocketReady = new Promise((resolve, reject) => {
-    websocket = new WebSocket(config.wsUrl);
-    websocket.binaryType = 'arraybuffer';
-    websocket.addEventListener('open', () => resolve(websocket));
-    websocket.addEventListener('error', (error) => {
-      websocketReady = null;
-      reject(error);
-    });
-    websocket.addEventListener('close', () => {
-      websocketReady = null;
-    });
-    websocket.addEventListener('message', handleServerMessage);
-  });
+  if (!websocketReady) {
+    websocketReady = createWebsocketPromise();
+  }
 
-  return websocketReady;
+  try {
+    const ws = await websocketReady;
+    if (ws.readyState === WebSocket.OPEN) {
+      return ws;
+    }
+  } catch (error) {
+    websocketReady = null;
+    websocket = null;
+    if (attempt + 1 < MAX_SOCKET_ATTEMPTS) {
+      const delay = Math.min(SOCKET_RETRY_BASE_DELAY * Math.pow(2, attempt), SOCKET_RETRY_MAX_DELAY);
+      await sleep(delay);
+      return ensureWebsocket(attempt + 1);
+    }
+    throw error;
+  }
+
+  websocketReady = null;
+  websocket = null;
+
+  if (attempt + 1 < MAX_SOCKET_ATTEMPTS) {
+    const delay = Math.min(SOCKET_RETRY_BASE_DELAY * Math.pow(2, attempt), SOCKET_RETRY_MAX_DELAY);
+    await sleep(delay);
+    return ensureWebsocket(attempt + 1);
+  }
+
+  throw new Error('Unable to reach the upload server. Please try again later.');
 }
 
 function handleServerMessage(event) {
@@ -267,8 +336,21 @@ async function prepareActiveUpload() {
   activeUpload.messageEl.textContent = 'Encrypting first chunk…';
 }
 
-async function sendNextChunk(upload) {
+async function sendNextChunk(upload, attempt = 0) {
   const ws = await ensureWebsocket();
+  if (ws.readyState !== WebSocket.OPEN) {
+    if (attempt + 1 < MAX_SOCKET_ATTEMPTS) {
+      const delay = Math.min(SOCKET_RETRY_BASE_DELAY * Math.pow(2, attempt), SOCKET_RETRY_MAX_DELAY);
+      websocketReady = null;
+      websocket = null;
+      if (attempt === 0) {
+        toast('Connection lost. Retrying upload…', 'warning', { timeout: 3500 });
+      }
+      await sleep(delay);
+      return sendNextChunk(upload, attempt + 1);
+    }
+    throw new Error('Upload connection unavailable');
+  }
   const { file, nextChunk, chunkCount } = upload;
   const support = upload.cryptoSupport ?? ensureWebCrypto('Encrypting files');
   const subtle = support.subtle;
@@ -303,7 +385,18 @@ async function sendNextChunk(upload) {
   }
 
   const message = `${JSON.stringify(envelope)}XXMOJOXX${JSON.stringify(payload)}`;
-  ws.send(message);
+  try {
+    ws.send(message);
+  } catch (error) {
+    if (attempt + 1 < MAX_SOCKET_ATTEMPTS) {
+      const delay = Math.min(SOCKET_RETRY_BASE_DELAY * Math.pow(2, attempt), SOCKET_RETRY_MAX_DELAY);
+      websocketReady = null;
+      websocket = null;
+      await sleep(delay);
+      return sendNextChunk(upload, attempt + 1);
+    }
+    throw error;
+  }
   upload.messageEl.textContent = `Encrypting and sending slice ${nextChunk + 1} of ${chunkCount}…`;
 }
 
