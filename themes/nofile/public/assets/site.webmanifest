@@ -1,0 +1,32 @@
+{
+  "name": "nofile.in",
+  "short_name": "nofile",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05070a",
+  "theme_color": "#0a0d11",
+  "description": "Anonymous encrypted file sharing with client-side AES-GCM protection.",
+  "icons": [
+    {
+      "src": "/assets/img/nofile-icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/assets/img/nofile-icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/assets/img/nofile-maskable.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/img/nofile-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}

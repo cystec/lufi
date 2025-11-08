@@ -1,0 +1,75 @@
+% # vim:set sw=4 ts=4 sts=4 ft=html.epl expandtab:
+% stash(page_title => 'My files | nofile.in');
+% stash(page_description => 'Manage encrypted uploads created in this browser, copy links, monitor expiry, and delete data from nofile.in.');
+% stash(canonical_path => '/files');
+% my $base_url = (defined($self->config('fixed_domain')) && $self->config('fixed_domain'))
+%   ? url_for('/')->host($self->config('fixed_domain'))->to_abs()
+%   : url_for('/')->to_abs();
+% my $action_url = url_for('/')->to_abs();
+% my $counter_url = url_for('counter');
+<header class="stack">
+  <h1 class="page-title">My files</h1>
+  <p class="lead">
+    Only uploads created from this browser appear here. The list lives in localStorage so clearing browser data will remove it.
+    Copy links with the embedded key or use the advanced menu to copy without the key.
+  </p>
+</header>
+
+<section class="panel">
+  <div id="files-config"
+       data-base="<%= $base_url %>"
+       data-action="<%= $action_url %>"
+       data-counter="<%= $counter_url %>"
+       hidden></div>
+  <div class="stack">
+    <div class="form-grid">
+      <label class="field-group">
+        <span>Search</span>
+        <input type="search" id="file-search" placeholder="Filter by filename, short link, or MIME type">
+      </label>
+      <label class="field-group">
+        <span>Sort by</span>
+        <select id="file-sort">
+          <option value="created_desc">Newest first</option>
+          <option value="created_asc">Oldest first</option>
+          <option value="expiry_asc">Expiring soon</option>
+          <option value="size_desc">Largest first</option>
+          <option value="size_asc">Smallest first</option>
+        </select>
+      </label>
+    </div>
+    <div class="file-actions">
+      <button class="btn-secondary btn" id="export-storage">Export list</button>
+      <button class="btn-secondary btn" id="import-storage-trigger">Import list</button>
+      <input type="file" id="import-storage" class="sr-only" accept="application/json">
+      <button class="btn-secondary btn" id="purge-expired">Remove expired</button>
+      <button class="btn-danger btn" id="clear-storage">Delete selected</button>
+    </div>
+    <p class="muted">Links include encrypted key fragments. Keep them intact when you share.</p>
+    <div class="table-responsive">
+      <table class="table" id="files-table">
+        <thead>
+          <tr>
+            <th scope="col"><span class="sr-only">Select</span></th>
+            <th scope="col">File name</th>
+            <th scope="col">Size</th>
+            <th scope="col">Expiry</th>
+            <th scope="col">Downloads</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="files-body">
+          <tr id="files-empty">
+            <td colspan="6" class="muted">No files stored yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<input type="file" id="hidden-import-control" class="sr-only" aria-hidden="true" />
+
+% content_for body_end => begin
+    <script type="module" src="<%= url_for('/assets/js/files.js') %>"></script>
+% end

@@ -15,3 +15,5 @@ themes/*
 !themes/default/*
 !themes/hacker
 !themes/hacker/*
+!themes/nofile
+!themes/nofile/*
