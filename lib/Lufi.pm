@@ -188,6 +188,10 @@ sub startup {
       ->to('Misc#about')
       ->name('about');
 
+    $r->get('/privacy')
+      ->to('Misc#privacy')
+      ->name('privacy');
+
     # About config API endpoint
     $r->get('/about/config')
       ->to('Misc#config_infos')

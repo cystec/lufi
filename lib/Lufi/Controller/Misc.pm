@@ -40,6 +40,12 @@ sub about {
     );
 }
 
+sub privacy {
+    my $c = shift;
+
+    $c->render(template => 'privacy');
+}
+
 sub config_infos {
     my $c = shift;
 
