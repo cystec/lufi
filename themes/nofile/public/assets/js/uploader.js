@@ -7,6 +7,7 @@ import {
   createIv,
   base64UrlEncode,
   randomBytes,
+  ensureWebCrypto,
   STORAGE_PREFIX,
 } from './utils.js';
 
@@ -233,6 +234,7 @@ async function startNextUpload() {
     key: null,
     keyEncoded: null,
     baseIv: null,
+    cryptoSupport: null,
   };
 
   window.onbeforeunload = (event) => {
@@ -252,26 +254,30 @@ async function startNextUpload() {
 async function prepareActiveUpload() {
   if (!activeUpload) return;
 
-  const key = await generateAesKey();
-  const encodedKey = await exportAesKey(key);
-  const baseIv = randomBytes(12);
+  const support = ensureWebCrypto('Encrypting files');
+  const key = await generateAesKey(support);
+  const encodedKey = await exportAesKey(key, support);
+  const baseIv = randomBytes(12, support.crypto);
 
   activeUpload.key = key;
   activeUpload.keyEncoded = encodedKey;
   activeUpload.baseIv = baseIv;
+  activeUpload.cryptoSupport = support;
   activeUpload.messageEl.textContent = 'Encrypting first chunk…';
 }
 
 async function sendNextChunk(upload) {
   const ws = await ensureWebsocket();
   const { file, nextChunk, chunkCount } = upload;
+  const support = upload.cryptoSupport ?? ensureWebCrypto('Encrypting files');
+  const subtle = support.subtle;
   const start = nextChunk * CHUNK_SIZE;
   const end = Math.min(file.size, start + CHUNK_SIZE);
   const slice = file.slice(start, end);
   const buffer = await slice.arrayBuffer();
 
   const iv = createIv(upload.baseIv, nextChunk);
-  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, upload.key, buffer);
+  const encrypted = await subtle.encrypt({ name: 'AES-GCM', iv }, upload.key, buffer);
   const payload = {
     alg: 'AES-GCM',
     iv: base64UrlEncode(iv),

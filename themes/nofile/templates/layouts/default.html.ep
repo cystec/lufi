@@ -84,51 +84,51 @@
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header" data-controller="nav">
-      <div class="shell">
-        <a class="brand" href="<%= url_for('/') %>" aria-label="nofile.in home">
-          <span class="brand-mark" aria-hidden="true">
-            %= include 'partials/logo'
-          </span>
+        <div class="shell">
+          <a class="brand" href="<%= url_for('index') %>" aria-label="nofile.in home">
+            <span class="brand-mark" aria-hidden="true">
+              %= include 'partials/logo'
+            </span>
             <span class="brand-text">
               <span class="brand-name">nofile.in</span>
               <span class="brand-tagline">anonymous | ephemeral | secure</span>
-          </span>
-        </a>
-        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
-          <span class="nav-toggle-bar"></span>
-          <span class="nav-toggle-bar"></span>
-          <span class="nav-toggle-bar"></span>
-          <span class="sr-only">Toggle navigation</span>
-        </button>
-        <nav id="primary-nav" class="primary-nav" aria-label="Primary">
-          <ul>
-            <li<%== ' class="current"' if current_route eq 'index' %>>
-              <a href="<%= url_for('/') %>">Upload</a>
-            </li>
-            <li<%== ' class="current"' if current_route eq 'files' %>>
-              <a href="<%= url_for('/files') %>">My files</a>
-            </li>
-            <li<%== ' class="current"' if current_route eq 'about' %>>
-              <a href="<%= url_for('/about') %>">About</a>
-            </li>
-            <li<%== ' class="current"' if current_route eq 'privacy' %>>
-              <a href="<%= url_for('/privacy') %>">Privacy</a>
-            </li>
-          % if ((defined(config('ldap')) || defined(config('htpasswd')) || defined(config('auth_headers'))) && is_user_authenticated()) {
-            <li>
-              <form action="<%= url_for('/logout') %>" method="POST">
-                %= csrf_field
-                <button class="link-button" type="submit">Logout</button>
-              </form>
-            </li>
-          % } elsif ((defined(config('ldap')) || defined(config('htpasswd')) || defined(config('auth_headers'))) && !is_user_authenticated()) {
-            <li<%== ' class="current"' if current_route eq 'login' %>>
-              <a href="<%= url_for('/login') %>">Sign in</a>
-            </li>
-          % }
-          </ul>
-        </nav>
-      </div>
+            </span>
+          </a>
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
+            <span class="nav-toggle-bar"></span>
+            <span class="nav-toggle-bar"></span>
+            <span class="nav-toggle-bar"></span>
+            <span class="sr-only">Toggle navigation</span>
+          </button>
+          <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+            <ul>
+              <li<%== ' class="current"' if current_route eq 'index' %>>
+                <a href="<%= url_for('index') %>">Upload</a>
+              </li>
+              <li<%== ' class="current"' if current_route eq 'files' %>>
+                <a href="<%= url_for('files') %>">My files</a>
+              </li>
+              <li<%== ' class="current"' if current_route eq 'about' %>>
+                <a href="<%= url_for('about') %>">About</a>
+              </li>
+              <li<%== ' class="current"' if current_route eq 'privacy' %>>
+                <a href="<%= url_for('privacy') %>">Privacy</a>
+              </li>
+            % if ((defined(config('ldap')) || defined(config('htpasswd')) || defined(config('auth_headers'))) && is_user_authenticated()) {
+              <li>
+                <form action="<%= url_for('logout') %>" method="POST">
+                  %= csrf_field
+                  <button class="link-button" type="submit">Logout</button>
+                </form>
+              </li>
+            % } elsif ((defined(config('ldap')) || defined(config('htpasswd')) || defined(config('auth_headers'))) && !is_user_authenticated()) {
+              <li<%== ' class="current"' if current_route eq 'login' %>>
+                <a href="<%= url_for('/login') %>">Sign in</a>
+              </li>
+            % }
+            </ul>
+          </nav>
+        </div>
     </header>
     <main id="main" class="site-main" tabindex="-1">
       <div class="shell">
@@ -138,14 +138,14 @@
     <footer class="site-footer">
       <div class="shell">
         <div>
-<span>© <%= (localtime)[5] + 1900 %> nofile.in</span>
+          <span>© <%= (localtime)[5] + 1900 %> nofile.in</span>
         </div>
         <nav aria-label="Footer">
           <ul>
-            <li><a href="<%= url_for('/') %>">Upload</a></li>
-            <li><a href="<%= url_for('/files') %>">My files</a></li>
-            <li><a href="<%= url_for('/about') %>">About</a></li>
-            <li><a href="<%= url_for('/privacy') %>">Privacy</a></li>
+            <li><a href="<%= url_for('index') %>">Upload</a></li>
+            <li><a href="<%= url_for('files') %>">My files</a></li>
+            <li><a href="<%= url_for('about') %>">About</a></li>
+            <li><a href="<%= url_for('privacy') %>">Privacy</a></li>
             <li><a href="mailto:shubham@nofile.in">Contact</a></li>
           </ul>
         </nav>
