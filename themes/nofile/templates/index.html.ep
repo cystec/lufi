@@ -1,0 +1,133 @@
+% # vim:set sw=4 ts=4 sts=4 ft=html.epl expandtab:
+% my %delay_labels = (
+%   0   => 'No time limit',
+%   1   => '24 hours',
+%   7   => '7 days',
+%   14  => '14 days',
+%   30  => '30 days',
+%   90  => '90 days',
+%   180 => '180 days',
+%   365 => '365 days',
+% );
+% my @allowed_delays = grep { $_ <= max_delay || max_delay == 0 || $_ == 0 } sort { $a <=> $b } keys %delay_labels;
+% my $base_url = (defined($self->config('fixed_domain')) && $self->config('fixed_domain'))
+%   ? url_for('/')->host($self->config('fixed_domain'))->to_abs()
+%   : url_for('/')->to_abs();
+% my $action_url = url_for('/')->to_abs();
+% my $ws_url = url_for('upload')->to_abs();
+% stash(page_title => 'Upload files securely | nofile.in');
+% stash(page_description => 'Upload files with client-side AES-GCM encryption, configurable expiry, and sharing controls at nofile.in.');
+% stash(canonical_path => '/');
+<section class="hero-copy">
+  <span class="chip chip-accent">Encrypted on your device</span>
+  <h1>Share files anonymously. Burn them when read.</h1>
+  <p>
+    Drop your files, let the browser encrypt everything with AES-GCM, then send links that hold the key inside the fragment.
+    Copy the full link to share or generate one without the key when you need extra control.
+  </p>
+</section>
+
+% if (defined(config('broadcast_message'))) {
+<div class="alert">
+  <h3>Notice</h3>
+  <p><%= config('broadcast_message') %></p>
+</div>
+% }
+
+% if (stash('invitation')) {
+<div class="alert">
+  <p>Your files will be delivered automatically to <strong><%= stash('invitation')->ldap_user %></strong> at <strong><%= stash('invitation')->ldap_user_mail %></strong>.</p>
+</div>
+% }
+
+% if (stop_upload) {
+<div class="alert callout danger">
+  <h3>Uploads paused</h3>
+  <p>Uploads are temporarily disabled. Please retry later.</p>
+</div>
+% } else {
+<section class="panel">
+  <div id="upload-config"
+       data-ws="<%= $ws_url %>"
+       data-base="<%= $base_url %>"
+       data-action="<%= $action_url %>"
+       data-force-burn="<%= $self->config('force_burn_after_reading') ? 'true' : 'false' %>"
+       data-guest="<%= stash('token') ? 'true' : 'false' %>"
+  % if (stash('token')) {
+       data-send-urls="<%= url_for('guest_send_mail', token => stash('token'))->to_abs() %>"
+  % }
+       hidden></div>
+  <div class="grid">
+    <div class="stack">
+      <div id="upload-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Drop files or press enter to browse">
+        <span class="dropzone-text-strong">Drop files or click to upload</span>
+        <span class="dropzone-text-sub">Encrypted before upload, keep the key private</span>
+        <input type="file" id="file-input" class="sr-only" aria-hidden="true" multiple>
+      </div>
+      <div class="upload-meta">
+        <div>
+          <strong>Size limit:</strong>
+          <span id="max-size" data-max="<%= config('max_file_size') || 0 %>">Calculating…</span>
+        </div>
+        <div>
+          <strong>Retention:</strong>
+          <label for="delete-day" class="sr-only">Delete after</label>
+          <select id="delete-day" name="delete-day" aria-label="Delete files after">
+          % for my $delay (@allowed_delays) {
+            % my $label = $delay_labels{$delay} || "${delay} days";
+            <option value="<%= $delay %>" <%= $delay == $self->config('default_delay') ? 'selected' : '' %>><%= $label %></option>
+          % }
+          % if (max_delay && !(grep { $_ == max_delay } @allowed_delays)) {
+            <option value="<%= max_delay %>"><%= max_delay %> days</option>
+          % }
+          </select>
+        </div>
+        <div class="option-row">
+          % if ($self->config('force_burn_after_reading')) {
+          <span class="status-pill warning">Self destruct after first download enforced</span>
+          % } else {
+          <label>
+            <input type="checkbox" id="first-view"> Delete at first download
+          </label>
+          % }
+          % if (config('allow_pwd_on_files') && (!stash('invitation'))) {
+          <label class="field-group">
+            <span>Password protect</span>
+            <input type="password" id="file-pwd" placeholder="Enter a download password">
+          </label>
+          % }
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card-outline">
+        <h3>How encryption works</h3>
+        <ul class="list-check">
+          <li>A random AES-GCM key and IV are generated per file using Web Crypto.</li>
+          <li>Chunks are encrypted locally and only ciphertext leaves the browser.</li>
+          <li>The key is base64url encoded inside the link fragment (after #) and never shared with the server.</li>
+          <li>Anyone with the full link can decrypt in-browser. Removing the fragment breaks decryption.</li>
+        </ul>
+      </div>
+      <div class="card-outline">
+        <h3>Share carefully</h3>
+        <p>Use the primary copy button to grab the full link with key. Advanced users can copy a link without the key to transmit it separately.</p>
+        <div class="callout warning">
+          <p>Screenshots, short links, or analytics should never include the secret fragment. Keep it client side.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="active-uploads" class="stack" aria-live="polite">
+    <h2 class="page-title">Upload queue</h2>
+    <p class="muted">Progress appears here once files start encrypting. You can browse safely while uploads continue.</p>
+    <ul id="upload-list" class="file-list" aria-live="polite"></ul>
+  </section>
+</section>
+% }
+
+% content_for body_end => begin
+    <script type="module" src="<%= url_for('/assets/js/uploader.js') %>"></script>
+% end

@@ -1,0 +1,160 @@
+% # vim:set sw=4 ts=4 sts=4 ft=html.epl expandtab:
+% my $lang = $self->languages // 'en';
+%    $lang =~ s/-(.*)/_\U$1/;
+% my $base_url = (defined($self->config('fixed_domain')) && $self->config('fixed_domain'))
+%     ? url_for('/')->host($self->config('fixed_domain'))->to_abs()
+%     : url_for('/')->to_abs();
+% my $page_title       = stash('page_title')       || 'Upload files securely | nofile.in';
+% my $page_description = stash('page_description') || 'Anonymous encrypted file sharing with client-side security and quick expiration controls.';
+% my $canonical_path   = stash('canonical_path')   || request->url->path->to_string;
+%    $canonical_path   = '/' if $canonical_path eq '';
+% my $page_url         = Mojo::URL->new($base_url)->path($canonical_path)->to_abs;
+<!DOCTYPE html>
+<html lang="<%= $lang %>">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title><%= $page_title %></title>
+    <meta name="description" content="<%= $page_description %>">
+    <meta name="theme-color" content="#0a0d11">
+    <link rel="canonical" href="<%= $page_url %>">
+    <meta property="og:title" content="<%= $page_title %>">
+    <meta property="og:description" content="<%= $page_description %>">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<%= $page_url %>">
+    <meta property="og:image" content="<%= Mojo::URL->new($base_url)->path('/assets/img/nofile-social.png')->to_abs %>">
+    <meta property="og:site_name" content="nofile.in">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<%= $page_title %>">
+    <meta name="twitter:description" content="<%= $page_description %>">
+    <meta name="twitter:image" content="<%= Mojo::URL->new($base_url)->path('/assets/img/nofile-social.png')->to_abs %>">
+    <link rel="icon" type="image/svg+xml" href="<%= url_for('/assets/img/nofile-icon.svg') %>">
+    <link rel="icon" type="image/png" sizes="512x512" href="<%= url_for('/assets/img/nofile-icon-512.png') %>">
+    <link rel="icon" type="image/png" sizes="192x192" href="<%= url_for('/assets/img/nofile-icon-192.png') %>">
+    <link rel="apple-touch-icon" href="<%= url_for('/assets/img/nofile-icon-180.png') %>">
+    <link rel="manifest" href="<%= url_for('/assets/site.webmanifest') %>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="stylesheet" href="<%= url_for('/assets/css/nofile.css') %>" media="all">
+% if (stash('critical_css')) {
+    <style><%= stash('critical_css') %></style>
+% }
+% my $ld_org = {
+%   '@context' => 'https://schema.org',
+%   '@type'    => 'Organization',
+%   'name'     => 'nofile.in',
+%   'url'      => "$base_url",
+%   'logo'     => Mojo::URL->new($base_url)->path('/assets/img/nofile-icon-512.png')->to_abs->to_string,
+%   'contactPoint' => [
+%       {
+%           '@type' => 'ContactPoint',
+%           'email' => 'shubham@nofile.in',
+%           'contactType' => 'customer support',
+%           'availableLanguage' => ['en']
+%       }
+%   ]
+% };
+% my $ld_site = {
+%   '@context' => 'https://schema.org',
+%   '@type'    => 'WebSite',
+%   'name'     => 'nofile.in',
+%   'url'      => "$base_url",
+%   'potentialAction' => {
+%       '@type'       => 'SearchAction',
+%       'target'      => Mojo::URL->new($base_url)->path('/files')->query(search => '{search_term_string}')->to_abs->to_string,
+%       'query-input' => 'required name=search_term_string'
+%   }
+% };
+    <script type="application/ld+json">
+<%= Mojo::JSON::encode_json($ld_org) %>
+    </script>
+    <script type="application/ld+json">
+<%= Mojo::JSON::encode_json($ld_site) %>
+    </script>
+% if (stash('json_ld')) {
+    <script type="application/ld+json">
+<%= stash('json_ld') %>
+    </script>
+% }
+% if (content_for 'head_extra') {
+    <%= content 'head_extra' %>
+% }
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header" data-controller="nav">
+      <div class="shell">
+        <a class="brand" href="<%= url_for('/') %>" aria-label="nofile.in home">
+          <span class="brand-mark" aria-hidden="true">
+            %= include 'partials/logo'
+          </span>
+            <span class="brand-text">
+              <span class="brand-name">nofile.in</span>
+              <span class="brand-tagline">anonymous | ephemeral | secure</span>
+          </span>
+        </a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="sr-only">Toggle navigation</span>
+        </button>
+        <nav id="primary-nav" class="primary-nav" aria-label="Primary">
+          <ul>
+            <li<%== ' class="current"' if current_route eq 'index' %>>
+              <a href="<%= url_for('/') %>">Upload</a>
+            </li>
+            <li<%== ' class="current"' if current_route eq 'files' %>>
+              <a href="<%= url_for('/files') %>">My files</a>
+            </li>
+            <li<%== ' class="current"' if current_route eq 'about' %>>
+              <a href="<%= url_for('/about') %>">About</a>
+            </li>
+            <li<%== ' class="current"' if current_route eq 'privacy' %>>
+              <a href="<%= url_for('/privacy') %>">Privacy</a>
+            </li>
+          % if ((defined(config('ldap')) || defined(config('htpasswd')) || defined(config('auth_headers'))) && is_user_authenticated()) {
+            <li>
+              <form action="<%= url_for('/logout') %>" method="POST">
+                %= csrf_field
+                <button class="link-button" type="submit">Logout</button>
+              </form>
+            </li>
+          % } elsif ((defined(config('ldap')) || defined(config('htpasswd')) || defined(config('auth_headers'))) && !is_user_authenticated()) {
+            <li<%== ' class="current"' if current_route eq 'login' %>>
+              <a href="<%= url_for('/login') %>">Sign in</a>
+            </li>
+          % }
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main id="main" class="site-main" tabindex="-1">
+      <div class="shell">
+        <%= content %>
+      </div>
+    </main>
+    <footer class="site-footer">
+      <div class="shell">
+        <div>
+          <span>© <%= Mojo::Date->new(time)->strftime('%Y') %> nofile.in</span>
+        </div>
+        <nav aria-label="Footer">
+          <ul>
+            <li><a href="<%= url_for('/') %>">Upload</a></li>
+            <li><a href="<%= url_for('/files') %>">My files</a></li>
+            <li><a href="<%= url_for('/about') %>">About</a></li>
+            <li><a href="<%= url_for('/privacy') %>">Privacy</a></li>
+            <li><a href="mailto:shubham@nofile.in">Contact</a></li>
+          </ul>
+        </nav>
+      </div>
+    </footer>
+    <div class="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="<%= url_for('/assets/js/app.js') %>" defer></script>
+% if (content_for 'body_end') {
+    <%= content 'body_end' %>
+% }
+  </body>
+</html>

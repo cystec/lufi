@@ -1,0 +1,138 @@
+% # vim:set sw=4 ts=4 sts=4 ft=html.epl expandtab:
+% my $file     = stash('f');
+% my $has_file = defined $file;
+% my $file_name = $has_file ? $file->filename : 'File not found';
+% my $page_title = $has_file ? "$file_name | nofile.in" : 'File not found | nofile.in';
+% stash(page_title => $page_title);
+% my $description = $has_file
+%   ? "Download $file_name with end to end encryption. Decrypt locally using the key embedded in the link fragment."
+%   : 'File unavailable or already deleted.';
+% stash(page_description => $description);
+% stash(canonical_path => request->url->path);
+% if ($has_file) {
+%   my $breadcrumbs = Mojo::JSON::encode_json({
+%     '@context' => 'https://schema.org',
+%     '@type'    => 'BreadcrumbList',
+%     itemListElement => [
+%       {
+%         '@type'    => 'ListItem',
+%         position   => 1,
+%         name       => 'Upload',
+%         item       => Mojo::URL->new($base_url)->path('/')->to_abs->to_string
+%       },
+%       {
+%         '@type'    => 'ListItem',
+%         position   => 2,
+%         name       => $file_name,
+%         item       => $page_url->to_string
+%       }
+%     ]
+%   });
+%   stash(json_ld => $breadcrumbs);
+% }
+<article class="stack">
+  <header class="stack">
+    <h1 class="page-title"><%= $file_name %></h1>
+    <p class="lead"><%= $description %></p>
+  </header>
+
+% unless ($has_file) {
+  <div class="alert callout danger">
+    <h3>File unavailable</h3>
+    <p><%= stash('msg') || 'We could not find a file for this link. The link may be invalid, expired, or the file has been deleted.' %></p>
+  </div>
+% } else {
+  % if (defined(stash('msg'))) {
+  <div class="alert callout danger">
+    <h3>Notice</h3>
+    <p><%= stash('msg') %></p>
+  </div>
+  % }
+  % my $base_url = (defined($self->config('fixed_domain')) && $self->config('fixed_domain'))
+  %   ? url_for('/')->host($self->config('fixed_domain'))->to_abs()
+  %   : url_for('/')->to_abs();
+  % my $download_ws = url_for('download', short => $file->short)->to_abs();
+  <div id="file-config"
+       data-ws="<%= $download_ws %>"
+       data-base="<%= $base_url %>"
+       data-short="<%= $file->short %>"
+       data-nbslices="<%= $file->nbslices %>"
+       data-password-required="<%= ($self->config('allow_pwd_on_files') && defined(stash('file_pwd'))) ? 'true' : 'false' %>"
+       hidden></div>
+  <section class="panel" data-short="<%= $file->short %>" data-size="<%= $file->filesize %>" data-type="<%= $file->mediatype %>" data-zipped="<%= $file->zipped ? 'true' : 'false' %>">
+    <div class="grid">
+      <div class="stack">
+        <dl class="meta-grid">
+          <div>
+            <dt>Filename</dt>
+            <dd><%= $file->filename %></dd>
+          </div>
+          <div>
+            <dt>Size</dt>
+            <dd id="file-size">Calculating…</dd>
+          </div>
+          <div>
+            <dt>MIME</dt>
+            <dd><%= $file->mediatype %></dd>
+          </div>
+          <div>
+            <dt>Expiry</dt>
+            <dd>
+            % if ($file->delete_at_day == 0) {
+              No automatic deletion
+            % } else {
+              <%= scalar localtime($file->created_at + $file->delete_at_day * 86400) %>
+            % }
+            </dd>
+          </div>
+          <div>
+            <dt>Downloads</dt>
+            <dd><%= $file->counter %></dd>
+          </div>
+        </dl>
+        % if ($file->delete_at_first_view) {
+        <p class="status-pill warning">Deletes after first successful download</p>
+        % }
+      </div>
+      <div class="stack">
+        <div class="callout">
+          <h3>End to end encryption reminder</h3>
+          <p>
+            The key that unlocks this file exists only inside the link fragment (after #). The server stores ciphertext and never learns or logs the key.
+            If the fragment is missing or modified the file cannot be decrypted.
+          </p>
+          <p class="muted">Share the full link when you want recipients to decrypt automatically. Use the advanced copy option to omit the key and send it via a separate channel.</p>
+        </div>
+          <div class="file-actions">
+            <a class="btn" id="download-btn" href="#" role="button">Download</a>
+            <button class="btn-secondary" id="open-preview-btn" type="button" data-action="preview">Open preview</button>
+          <button class="btn-secondary" id="copy-link-btn" data-action="copy-full">Copy link with key</button>
+          <button class="btn-secondary" id="copy-link-no-key-btn" data-action="copy-keyless">Copy link without key</button>
+          <a class="btn-secondary" id="report-btn" href="mailto:shubham@nofile.in?subject=%5BReport%5D%20nofile.in&body=File%20ID:%20<%= $file->short %>%0AFilename:%20<%= $file->filename %>%0AURL:%20<%= $page_url %>%0ANotes:%20" rel="noopener">Report file</a>
+        </div>
+      </div>
+    </div>
+
+    % if ($self->config('allow_pwd_on_files') && defined(stash('file_pwd'))) {
+    <form class="stack" id="password-form">
+      <label class="field-group">
+        <span>Enter download password</span>
+        <input type="password" id="file-password" autocomplete="off">
+      </label>
+      <button class="btn" id="password-submit">Unlock</button>
+    </form>
+    % }
+
+    <section id="download-status" class="stack" aria-live="polite">
+      <div class="progress" aria-hidden="true">
+        <div class="progress-bar" id="download-progress"></div>
+      </div>
+      <p class="muted" id="download-message">Waiting for download to start.</p>
+      <button class="btn-ghost" id="cancel-download-btn" hidden>Cancel download</button>
+    </section>
+  </section>
+% }
+
+% content_for body_end => begin
+    <script type="module" src="<%= url_for('/assets/js/file-view.js') %>"></script>
+% end

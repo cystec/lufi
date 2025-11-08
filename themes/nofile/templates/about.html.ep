@@ -1,0 +1,68 @@
+% # vim:set sw=4 ts=4 sts=4 ft=html.epl expandtab:
+% stash(page_title => 'About nofile.in | Zero knowledge file sharing');
+% stash(page_description => 'Learn how nofile.in uses client-side AES-GCM encryption, self-destruct links, and private workflows for anonymous file sharing.');
+% stash(canonical_path => '/about');
+<section class="stack">
+  <h1 class="page-title">About nofile.in</h1>
+  <p class="lead">
+    nofile.in is a minimalist tool for sharing files without handing over your data. Everything is encrypted in the browser,
+    links expire quickly, and the key never leaves the client.
+  </p>
+
+  <div class="grid grid-cols-2">
+    <div class="panel">
+      <h2>Why it exists</h2>
+      <p>
+        We built nofile.in for incidents, quick audits, press tips, and any moment when you need to send files without creating accounts
+        or trusting another analytics pipeline. The interface is intentionally quiet so you can focus on the upload.
+      </p>
+      <ul class="list-check">
+        <li>Anonymous uploads without registration</li>
+        <li>Short-lived links and optional self destruct</li>
+        <li>Zero knowledge architecture, even metadata is limited</li>
+        <li>Dark, accessible design tuned for low light environments</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>How encryption works</h2>
+      <ol class="timeline">
+        <li class="timeline-item">
+          <h4>Generate key pairs</h4>
+          <p>The browser uses Web Crypto to produce a random AES-GCM key plus a fresh IV for every chunk.</p>
+        </li>
+        <li class="timeline-item">
+          <h4>Encrypt then upload</h4>
+          <p>Chunks are encrypted before leaving your device. The server receives only ciphertext, filename, MIME type, and basic retention settings.</p>
+        </li>
+        <li class="timeline-item">
+          <h4>Share full link</h4>
+          <p>The encryption key is base64url encoded and placed after the # fragment. This fragment never touches the server or logs.</p>
+        </li>
+        <li class="timeline-item">
+          <h4>Decrypt locally</h4>
+          <p>Recipients fetch ciphertext, extract the key from the fragment, and decrypt in their browser. Remove the fragment and the file stays unreadable.</p>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Responsible use</h2>
+    <p>
+      You are accountable for the content you upload. Do not send malware, illegal material, or anything that violates rights or contracts.
+      Administrators act on abuse reports promptly. Use the report button on any file page to flag harmful content.
+    </p>
+    <div class="callout warning">
+      <p>
+        Keep the fragment secret. Sending screenshots or shortened links often strips the fragment and renders the file unusable for recipients.
+        If you must share the link without the key, send the fragment over a separate channel.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Contact</h2>
+    <p>Questions or security feedback are welcome at <a href="mailto:shubham@nofile.in">shubham@nofile.in</a>.</p>
+  </div>
+</section>
