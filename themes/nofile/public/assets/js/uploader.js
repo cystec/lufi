@@ -9,6 +9,7 @@ import {
   randomBytes,
   ensureWebCrypto,
   STORAGE_PREFIX,
+  normalizeWebSocketUrl,
 } from './utils.js';
 
 const CHUNK_SIZE = 750 * 1024;
@@ -18,7 +19,7 @@ if (!uploadConfigEl) {
 }
 
 const config = {
-  wsUrl: uploadConfigEl.dataset.ws,
+  wsUrl: normalizeWebSocketUrl(uploadConfigEl.dataset.ws),
   baseUrl: uploadConfigEl.dataset.base,
   actionUrl: uploadConfigEl.dataset.action,
   forceBurn: uploadConfigEl.dataset.forceBurn === 'true',

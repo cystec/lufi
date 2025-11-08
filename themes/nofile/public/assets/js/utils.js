@@ -1,6 +1,39 @@
 const TOAST_REGION_SELECTOR = '.toast-region';
 export const STORAGE_PREFIX = 'nofile:';
 
+export function normalizeWebSocketUrl(url) {
+  if (!url) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.protocol === 'https:') {
+      parsed.protocol = 'wss:';
+    } else if (parsed.protocol === 'http:') {
+      parsed.protocol = 'ws:';
+    } else if (parsed.protocol === '') {
+      parsed.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    }
+    return parsed.toString();
+  } catch (error) {
+    console.warn('Failed to normalize WebSocket URL', url, error);
+    if (typeof url === 'string') {
+      if (url.startsWith('https://')) {
+        return `wss://${url.slice('https://'.length)}`;
+      }
+      if (url.startsWith('http://')) {
+        return `ws://${url.slice('http://'.length)}`;
+      }
+      if (url.startsWith('//')) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}${url}`;
+      }
+    }
+    return url;
+  }
+}
+
 function resolveCryptoGlobal() {
   if (typeof globalThis === 'undefined') {
     return null;
