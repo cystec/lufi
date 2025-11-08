@@ -5,6 +5,7 @@ import {
   toast,
   getFragmentKey,
   formatBytes,
+  normalizeWebSocketUrl,
 } from './utils.js';
 
 const configEl = document.getElementById('file-config');
@@ -13,7 +14,7 @@ if (!configEl) {
 }
 
 const config = {
-  wsUrl: configEl.dataset.ws,
+  wsUrl: normalizeWebSocketUrl(configEl.dataset.ws),
   baseUrl: configEl.dataset.base,
   short: configEl.dataset.short,
   totalSlices: Number(configEl.dataset.nbslices || 1),
