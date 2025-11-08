@@ -69,13 +69,13 @@
   </div>
   % }
 
-  <div id="file-config"
-       data-ws="<%= $download_ws %>"
-       data-base="<%= $base_url %>"
-       data-short="<%= $file->short %>"
-       data-nbslices="<%= $file->nbslices %>"
-       data-password-required="<%= ($self->config('allow_pwd_on_files') && defined(stash('file_pwd'))) ? 'true' : 'false' %>"
-       hidden></div>
+    <div id="file-config"
+         data-ws="<%= $download_ws %>"
+         data-base="<%= $base_url %>"
+         data-short="<%= $file->short %>"
+         data-nbslices="<%= $file->nbslices %>"
+         data-password-required="<%= stash('file_pwd') ? 'true' : 'false' %>"
+         hidden></div>
 
   <section class="panel"
            data-short="<%= $file->short %>"
@@ -139,7 +139,7 @@
       </div>
     </div>
 
-    % if ($self->config('allow_pwd_on_files') && defined(stash('file_pwd'))) {
+    % if (stash('file_pwd')) {
     <form class="stack" id="password-form">
       <label class="field-group">
         <span>Enter download password</span>

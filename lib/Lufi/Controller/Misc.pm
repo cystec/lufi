@@ -43,7 +43,7 @@ sub about {
 sub privacy {
     my $c = shift;
 
-    $c->render(template => 'privacy');
+    return $c->redirect_to('about');
 }
 
 sub config_infos {
