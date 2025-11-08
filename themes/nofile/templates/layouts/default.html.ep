@@ -1,14 +1,18 @@
 % # vim:set sw=4 ts=4 sts=4 ft=html.epl expandtab:
 % my $lang = $self->languages // 'en';
 %    $lang =~ s/-(.*)/_\U$1/;
-% my $base_url = (defined($self->config('fixed_domain')) && $self->config('fixed_domain'))
-%     ? url_for('/')->host($self->config('fixed_domain'))->to_abs()
-%     : url_for('/')->to_abs();
+% my $fixed_domain = $self->config('fixed_domain');
+% my $base_url = url_for('/')->to_abs;
+%    $base_url->host($fixed_domain) if defined $fixed_domain && $fixed_domain;
 % my $page_title       = stash('page_title')       || 'Upload files securely | nofile.in';
 % my $page_description = stash('page_description') || 'Anonymous encrypted file sharing with client-side security and quick expiration controls.';
-% my $canonical_path   = stash('canonical_path')   || request->url->path->to_string;
-%    $canonical_path   = '/' if $canonical_path eq '';
-% my $page_url         = Mojo::URL->new($base_url)->path($canonical_path)->to_abs;
+% my $canonical_target = stash('canonical_path');
+%    $canonical_target = request->url->path->to_string unless defined $canonical_target;
+%    $canonical_target = '/' if !defined $canonical_target || $canonical_target eq '';
+% my $page_url = url_for($canonical_target)->to_abs;
+%    $page_url->host($fixed_domain) if defined $fixed_domain && $fixed_domain;
+% my $social_image = url_for('/assets/img/nofile-social.png')->to_abs;
+%    $social_image->host($fixed_domain) if defined $fixed_domain && $fixed_domain;
 <!DOCTYPE html>
 <html lang="<%= $lang %>">
   <head>
@@ -23,12 +27,12 @@
     <meta property="og:description" content="<%= $page_description %>">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<%= $page_url %>">
-    <meta property="og:image" content="<%= Mojo::URL->new($base_url)->path('/assets/img/nofile-social.png')->to_abs %>">
+    <meta property="og:image" content="<%= $social_image %>">
     <meta property="og:site_name" content="nofile.in">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="<%= $page_title %>">
     <meta name="twitter:description" content="<%= $page_description %>">
-    <meta name="twitter:image" content="<%= Mojo::URL->new($base_url)->path('/assets/img/nofile-social.png')->to_abs %>">
+    <meta name="twitter:image" content="<%= $social_image %>">
     <link rel="icon" type="image/svg+xml" href="<%= url_for('/assets/img/nofile-icon.svg') %>">
     <link rel="icon" type="image/png" sizes="512x512" href="<%= url_for('/assets/img/nofile-icon-512.png') %>">
     <link rel="icon" type="image/png" sizes="192x192" href="<%= url_for('/assets/img/nofile-icon-192.png') %>">
@@ -45,7 +49,7 @@
 %   '@type'    => 'Organization',
 %   'name'     => 'nofile.in',
 %   'url'      => "$base_url",
-%   'logo'     => Mojo::URL->new($base_url)->path('/assets/img/nofile-icon-512.png')->to_abs->to_string,
+%   'logo'     => $base_url->clone->path('/assets/img/nofile-icon-512.png')->to_abs->to_string,
 %   'contactPoint' => [
 %       {
 %           '@type' => 'ContactPoint',
@@ -62,7 +66,7 @@
 %   'url'      => "$base_url",
 %   'potentialAction' => {
 %       '@type'       => 'SearchAction',
-%       'target'      => Mojo::URL->new($base_url)->path('/files')->query(search => '{search_term_string}')->to_abs->to_string,
+%       'target'      => $base_url->clone->path('/files')->query(search => '{search_term_string}')->to_abs->to_string,
 %       'query-input' => 'required name=search_term_string'
 %   }
 % };

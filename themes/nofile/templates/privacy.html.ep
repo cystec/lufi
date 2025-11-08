@@ -1,7 +1,11 @@
 % # vim:set sw=4 ts=4 sts=4 ft=html.epl expandtab:
 % stash(page_title => 'Privacy policy | nofile.in');
 % stash(page_description => 'Understand what nofile.in stores, how end to end encryption works, handling of logs, and abuse response process.');
-% stash(canonical_path => '/privacy');
+% stash(canonical_path => 'privacy');
+% my $contact_info = $self->config('contact');
+% my $report_target = $self->config('report') // 'mailto:shubham@nofile.in';
+% my $report_label  = $report_target;
+%    $report_label  =~ s/^mailto://;
 <article class="stack">
   <h1 class="page-title">Privacy policy</h1>
   <p class="lead">
@@ -32,29 +36,37 @@
     <p class="callout">Keep the key fragment out of screenshots, QR codes, URL shorteners, and analytics tools. Treat it like a password.</p>
   </section>
 
-  <section class="panel">
-    <h2>Logging and analytics</h2>
-    <p>
-      Server logs capture minimal operational data: timestamp, originating IP, HTTP verb, and route. We do not log URL fragments or decrypted content.
-      There are no third party analytics pixels. We use aggregated metrics to monitor service health only.
-    </p>
-  </section>
+    <section class="panel">
+      <h2>Logging and analytics</h2>
+      <p>
+        Server logs capture minimal operational data: timestamp, originating IP, HTTP verb, and route. We do not log URL fragments or decrypted content.
+        There are no third party analytics pixels. We use aggregated metrics to monitor service health only.
+      </p>
+    </section>
 
-  <section class="panel">
-    <h2>Cookies and storage</h2>
-    <p>
-      We rely on localStorage to remember files you uploaded from the current browser. This list includes the moderation token required to delete files later.
-      There are no tracking cookies. Session cookies appear only when you authenticate with an enterprise integration.
-    </p>
-  </section>
+    <section class="panel">
+      <h2>Cookies and storage</h2>
+      <p>
+        We rely on localStorage to remember files you uploaded from the current browser. This list includes the moderation token required to delete files later.
+        There are no tracking cookies. Session cookies appear only when you authenticate with an enterprise integration.
+      </p>
+    </section>
 
-  <section class="panel">
-    <h2>Abuse and takedowns</h2>
-    <p>
-      Use the report button on any file page or email <a href="mailto:shubham@nofile.in">shubham@nofile.in</a> with the file ID, filename, and link.
-      The team reviews reports quickly and removes content that violates law or terms. Deleting a file removes its ciphertext immediately.
-    </p>
-  </section>
+    <section class="panel">
+      <h2>Abuse and takedowns</h2>
+      <p>
+        Use the report button on any file page or reach out via
+        <a href="<%= $report_target %>"><%= $report_label %></a>
+        with the file ID, filename, and link.
+        The team reviews reports quickly and removes content that violates law or terms. Deleting a file removes its ciphertext immediately.
+      </p>
+    </section>
+% if ($contact_info) {
+    <section class="panel">
+      <h2>Contact</h2>
+      <p><%= $contact_info %></p>
+    </section>
+% }
 
   <section class="panel">
     <h2>Last updated</h2>
