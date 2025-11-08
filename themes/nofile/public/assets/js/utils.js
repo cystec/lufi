@@ -1,6 +1,68 @@
 const TOAST_REGION_SELECTOR = '.toast-region';
 export const STORAGE_PREFIX = 'nofile:';
 
+function resolveCryptoGlobal() {
+  if (typeof globalThis === 'undefined') {
+    return null;
+  }
+  return globalThis.crypto || globalThis.msCrypto || null;
+}
+
+function analyzeWebCryptoSupport() {
+  if (typeof window === 'undefined') {
+    return {
+      ok: false,
+      reason: 'no-window',
+      message: 'Uploads require a browser environment with Web Crypto support.',
+    };
+  }
+
+  const cryptoObj = resolveCryptoGlobal();
+
+  if (!cryptoObj) {
+    return {
+      ok: false,
+      reason: 'missing-crypto',
+      message: 'This browser does not expose the window.crypto API. Please switch to a modern browser.',
+    };
+  }
+
+  if (typeof window.isSecureContext === 'boolean' && !window.isSecureContext) {
+    return {
+      ok: false,
+      reason: 'insecure-context',
+      message: 'Web Crypto requires a secure context (HTTPS). Please access this page over HTTPS.',
+    };
+  }
+
+  const subtle = cryptoObj.subtle || cryptoObj.webkitSubtle || null;
+
+  if (!subtle) {
+    return {
+      ok: false,
+      reason: 'missing-subtle',
+      message: 'This browser is missing crypto.subtle (Web Crypto). Update or switch to a modern browser.',
+    };
+  }
+
+  return { ok: true, crypto: cryptoObj, subtle };
+}
+
+export function getWebCryptoSupport() {
+  return analyzeWebCryptoSupport();
+}
+
+export function ensureWebCrypto(operation = 'Uploads') {
+  const support = analyzeWebCryptoSupport();
+  if (support.ok) {
+    return support;
+  }
+
+  const prefix = operation ? `${operation} requires Web Crypto support.` : 'Web Crypto support is required.';
+  const message = support.message ? `${prefix} ${support.message}` : prefix;
+  throw new Error(message);
+}
+
 export function formatBytes(bytes) {
   if (!bytes || bytes <= 0) {
     return '0 B';
@@ -83,18 +145,21 @@ export function createIv(baseIv, counter) {
   return dataView.buffer;
 }
 
-export async function generateAesKey() {
-  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+export async function generateAesKey(support) {
+  const { subtle } = support ?? ensureWebCrypto('Generating encryption keys');
+  return subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 
-export async function exportAesKey(key) {
-  const raw = await crypto.subtle.exportKey('raw', key);
+export async function exportAesKey(key, support) {
+  const { subtle } = support ?? ensureWebCrypto('Exporting encryption keys');
+  const raw = await subtle.exportKey('raw', key);
   return base64UrlEncode(raw);
 }
 
-export function decodeAesKey(base64url) {
+export function decodeAesKey(base64url, support) {
+  const { subtle } = support ?? ensureWebCrypto('Decrypting files');
   const raw = base64UrlDecode(base64url);
-  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['decrypt']);
+  return subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['decrypt']);
 }
 
 export function formatDate(timestamp) {
@@ -131,8 +196,12 @@ export function setFragmentKey(key) {
   window.location.hash = key;
 }
 
-export function randomBytes(length) {
+export function randomBytes(length, cryptoImpl) {
   const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
+  const cryptoObj = cryptoImpl ?? resolveCryptoGlobal();
+  if (!cryptoObj?.getRandomValues) {
+    throw new Error('Secure random number generation requires Web Crypto support.');
+  }
+  cryptoObj.getRandomValues(bytes);
   return bytes.buffer;
 }

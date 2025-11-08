@@ -1,4 +1,4 @@
-import { toast } from './utils.js';
+import { toast, getWebCryptoSupport } from './utils.js';
 
 function initNav() {
   const toggle = document.querySelector('.nav-toggle');
@@ -44,8 +44,9 @@ function initMaxSizeDisplay() {
 }
 
 function warnIfNoCrypto() {
-  if (!window.crypto?.subtle) {
-    toast('This browser does not support the required Web Crypto APIs.', 'danger', { timeout: 6000 });
+  const support = getWebCryptoSupport();
+  if (!support.ok) {
+    toast(support.message, 'danger', { timeout: 7000 });
   }
 }
 
