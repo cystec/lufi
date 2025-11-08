@@ -5,7 +5,7 @@ import {
   toast,
   getFragmentKey,
   formatBytes,
-  normalizeWebSocketUrl,
+  buildWebSocketCandidates,
 } from './utils.js';
 
 const configEl = document.getElementById('file-config');
@@ -13,12 +13,22 @@ if (!configEl) {
   throw new Error('Missing file configuration');
 }
 
+const baseUrl = configEl.dataset.base;
+const wsCandidates = buildWebSocketCandidates(configEl.dataset.ws, { baseUrl });
+if (!wsCandidates.length) {
+  throw new Error('Unable to determine download server endpoint');
+}
+
+const MAX_SOCKET_ATTEMPTS = 5;
+const SOCKET_RETRY_BASE_DELAY = 500;
+const SOCKET_RETRY_MAX_DELAY = 4000;
+
 const config = {
-  wsUrl: normalizeWebSocketUrl(configEl.dataset.ws),
-  baseUrl: configEl.dataset.base,
+  baseUrl,
   short: configEl.dataset.short,
   totalSlices: Number(configEl.dataset.nbslices || 1),
   passwordRequired: configEl.dataset.passwordRequired === 'true',
+  wsCandidates,
 };
 
 const panelEl = document.querySelector('.panel');
@@ -36,7 +46,6 @@ const fileSizeEl = document.getElementById('file-size');
 
 const state = {
   ws: null,
-  attempts: 0,
   key: null,
   rawKey: null,
   keyString: '',
@@ -45,6 +54,10 @@ const state = {
   completed: false,
   blob: null,
   aborting: false,
+  password: undefined,
+  currentCandidate: 0,
+  candidateAttempts: wsCandidates.map(() => 0),
+  lastSocketError: null,
 };
 
 function initFileSize() {
@@ -126,8 +139,10 @@ async function startDownload() {
 
   state.chunks = new Array(config.totalSlices);
   state.nextPart = 0;
-  state.attempts = 0;
   state.completed = false;
+  state.currentCandidate = 0;
+  state.candidateAttempts = config.wsCandidates.map(() => 0);
+  state.lastSocketError = null;
   cancelBtn.hidden = false;
   messageEl.textContent = 'Connecting to secure download channel…';
   openWebSocket(0);
@@ -150,18 +165,44 @@ async function prepareKey() {
 }
 
 function openWebSocket(part) {
-  state.ws = new WebSocket(config.wsUrl);
-  state.ws.addEventListener('open', () => {
+  if (state.currentCandidate >= config.wsCandidates.length) {
+    const message = state.lastSocketError?.message || 'Unable to establish download channel.';
+    toast(message, 'danger');
+    cancelBtn.hidden = true;
+    window.onbeforeunload = null;
+    return;
+  }
+
+  const url = config.wsCandidates[state.currentCandidate];
+  let socket;
+  try {
+    socket = new WebSocket(url);
+  } catch (error) {
+    state.lastSocketError = error instanceof Error ? error : new Error(String(error));
+    scheduleRetry(part, state.lastSocketError.message || 'Connection failed');
+    return;
+  }
+
+  let opened = false;
+  state.ws = socket;
+  state.lastSocketError = null;
+
+  socket.addEventListener('open', () => {
+    opened = true;
+    state.candidateAttempts[state.currentCandidate] = 0;
     requestSlice(part);
   });
-  state.ws.addEventListener('message', onSliceReceived);
-  state.ws.addEventListener('error', () => {
-    retry(part);
+  socket.addEventListener('message', onSliceReceived);
+  socket.addEventListener('error', () => {
+    state.lastSocketError = new Error('WebSocket error');
   });
-  state.ws.addEventListener('close', () => {
-    if (!state.completed && !state.aborting) {
-      retry(part);
+  socket.addEventListener('close', () => {
+    if (state.completed || state.aborting) {
+      return;
     }
+    const reason =
+      state.lastSocketError?.message || (opened ? 'Connection lost' : 'Connection failed');
+    scheduleRetry(part, reason);
   });
 }
 
@@ -174,20 +215,53 @@ function requestSlice(part) {
   messageEl.textContent = `Requesting slice ${part + 1} of ${config.totalSlices}…`;
 }
 
-function retry(part) {
-  state.attempts += 1;
-  if (state.attempts > 8) {
-    toast('Unable to sustain connection for download.', 'danger');
+function scheduleRetry(part, reason = 'Connection lost') {
+  if (state.completed || state.aborting) {
+    return;
+  }
+
+  if (state.ws && state.ws.readyState !== WebSocket.CLOSED) {
+    try {
+      state.ws.close();
+    } catch (error) {
+      // Ignore close errors.
+    }
+  }
+  state.ws = null;
+
+  state.candidateAttempts[state.currentCandidate] += 1;
+  const attempt = state.candidateAttempts[state.currentCandidate];
+
+  if (attempt < MAX_SOCKET_ATTEMPTS) {
+    const delay = Math.min(
+      SOCKET_RETRY_BASE_DELAY * Math.pow(2, attempt - 1),
+      SOCKET_RETRY_MAX_DELAY,
+    );
+    const attemptLabel = attempt + 1;
+    messageEl.textContent = `${reason}. Retrying slice ${part + 1} (attempt ${attemptLabel})…`;
+    window.setTimeout(() => openWebSocket(part), delay);
+    return;
+  }
+
+  state.currentCandidate += 1;
+  if (state.currentCandidate >= config.wsCandidates.length) {
+    const message =
+      state.lastSocketError?.message || 'Unable to sustain connection for download.';
+    toast(message, 'danger');
     cancelBtn.hidden = true;
     window.onbeforeunload = null;
     return;
   }
-  messageEl.textContent = `Retrying slice ${part + 1} (${state.attempts})…`;
-  openWebSocket(part);
+
+  state.lastSocketError = null;
+  messageEl.textContent = 'Switching download connection strategy…';
+  state.candidateAttempts[state.currentCandidate] = 0;
+  window.setTimeout(() => openWebSocket(part), SOCKET_RETRY_BASE_DELAY);
 }
 
 async function onSliceReceived(event) {
-  state.attempts = 0;
+  state.candidateAttempts[state.currentCandidate] = 0;
+  state.lastSocketError = null;
   const [jsonPart, encryptedPart] = event.data.split('XXMOJOXX');
   const meta = JSON.parse(jsonPart);
 

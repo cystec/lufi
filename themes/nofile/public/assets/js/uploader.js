@@ -9,7 +9,7 @@ import {
   randomBytes,
   ensureWebCrypto,
   STORAGE_PREFIX,
-  normalizeWebSocketUrl,
+  buildWebSocketCandidates,
 } from './utils.js';
 
 const CHUNK_SIZE = 750 * 1024;
@@ -18,13 +18,19 @@ if (!uploadConfigEl) {
   throw new Error('Upload configuration missing');
 }
 
+const baseUrl = uploadConfigEl.dataset.base;
+const wsCandidates = buildWebSocketCandidates(uploadConfigEl.dataset.ws, { baseUrl });
+if (!wsCandidates.length) {
+  throw new Error('Unable to determine upload server endpoint');
+}
+
 const config = {
-  wsUrl: normalizeWebSocketUrl(uploadConfigEl.dataset.ws),
-  baseUrl: uploadConfigEl.dataset.base,
+  baseUrl,
   actionUrl: uploadConfigEl.dataset.action,
   forceBurn: uploadConfigEl.dataset.forceBurn === 'true',
   isGuest: uploadConfigEl.dataset.guest === 'true',
   sendUrlsUrl: uploadConfigEl.dataset.sendUrls,
+  wsCandidates,
 };
 
 const dropzone = document.getElementById('upload-dropzone');
@@ -45,6 +51,9 @@ let websocket = null;
 let websocketReady = null;
 let uploadCounter = 0;
 let pendingGuestPayloads = [];
+const websocketCandidateAttempts = config.wsCandidates.map(() => 0);
+let websocketCandidateIndex = 0;
+let lastWebsocketError = null;
 
 function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -114,9 +123,17 @@ function enqueueFiles(fileList) {
   startNextUpload();
 }
 
-function createWebsocketPromise() {
+function createWebsocketPromise(url) {
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(config.wsUrl);
+    let socket;
+    try {
+      socket = new WebSocket(url);
+    } catch (error) {
+      const enriched = error instanceof Error ? error : new Error(String(error));
+      enriched.url = url;
+      reject(enriched);
+      return;
+    }
     websocket = socket;
     socket.binaryType = 'arraybuffer';
 
@@ -145,13 +162,18 @@ function createWebsocketPromise() {
     const handleError = (event) => {
       cleanupInitial();
       handleClose();
-      reject(new Error('WebSocket connection failed'));
+      const error = new Error('WebSocket connection failed');
+      error.url = url;
+      error.event = event;
+      reject(error);
     };
 
     const handleInitialClose = () => {
       cleanupInitial();
       handleClose();
-      reject(new Error('WebSocket closed before opening'));
+      const error = new Error('WebSocket closed before opening');
+      error.url = url;
+      reject(error);
     };
 
     socket.addEventListener('open', handleOpen, { once: true });
@@ -160,41 +182,54 @@ function createWebsocketPromise() {
   });
 }
 
-async function ensureWebsocket(attempt = 0) {
+async function ensureWebsocket() {
   if (websocket && websocket.readyState === WebSocket.OPEN) {
     return websocket;
   }
 
-  if (!websocketReady) {
-    websocketReady = createWebsocketPromise();
-  }
+  while (websocketCandidateIndex < config.wsCandidates.length) {
+    const url = config.wsCandidates[websocketCandidateIndex];
 
-  try {
-    const ws = await websocketReady;
-    if (ws.readyState === WebSocket.OPEN) {
-      return ws;
+    if (!websocketReady) {
+      websocketReady = createWebsocketPromise(url);
     }
-  } catch (error) {
+
+    try {
+      const ws = await websocketReady;
+      if (ws.readyState === WebSocket.OPEN) {
+        websocketCandidateAttempts[websocketCandidateIndex] = 0;
+        lastWebsocketError = null;
+        return ws;
+      }
+    } catch (error) {
+      lastWebsocketError = error instanceof Error ? error : new Error(String(error));
+    }
+
     websocketReady = null;
     websocket = null;
-    if (attempt + 1 < MAX_SOCKET_ATTEMPTS) {
-      const delay = Math.min(SOCKET_RETRY_BASE_DELAY * Math.pow(2, attempt), SOCKET_RETRY_MAX_DELAY);
+
+    websocketCandidateAttempts[websocketCandidateIndex] += 1;
+    const candidateAttempts = websocketCandidateAttempts[websocketCandidateIndex];
+
+    if (candidateAttempts < MAX_SOCKET_ATTEMPTS) {
+      const delay = Math.min(
+        SOCKET_RETRY_BASE_DELAY * Math.pow(2, candidateAttempts - 1),
+        SOCKET_RETRY_MAX_DELAY,
+      );
       await sleep(delay);
-      return ensureWebsocket(attempt + 1);
+      continue;
     }
-    throw error;
+
+    websocketCandidateIndex += 1;
+    if (websocketCandidateIndex < config.wsCandidates.length) {
+      websocketCandidateAttempts[websocketCandidateIndex] = 0;
+      lastWebsocketError = null;
+    }
   }
 
-  websocketReady = null;
-  websocket = null;
-
-  if (attempt + 1 < MAX_SOCKET_ATTEMPTS) {
-    const delay = Math.min(SOCKET_RETRY_BASE_DELAY * Math.pow(2, attempt), SOCKET_RETRY_MAX_DELAY);
-    await sleep(delay);
-    return ensureWebsocket(attempt + 1);
-  }
-
-  throw new Error('Unable to reach the upload server. Please try again later.');
+  const fallbackMessage =
+    lastWebsocketError?.message || 'Unable to reach the upload server. Please try again later.';
+  throw new Error(fallbackMessage);
 }
 
 function handleServerMessage(event) {

@@ -1,45 +1,147 @@
 const TOAST_REGION_SELECTOR = '.toast-region';
 export const STORAGE_PREFIX = 'nofile:';
 
-export function normalizeWebSocketUrl(url) {
-  if (!url) {
-    return url;
+function getPageBaseUrl() {
+  if (typeof window === 'undefined' || !window.location) {
+    return null;
   }
-
-  const isSecureContext = typeof window !== 'undefined' && window.location.protocol === 'https:';
-
   try {
-    const parsed = new URL(url, window.location.origin);
-    if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === '') {
-      parsed.protocol = isSecureContext ? 'wss:' : 'ws:';
-    } else if (parsed.protocol === 'ws:' && isSecureContext) {
-      parsed.protocol = 'wss:';
-    } else if (parsed.protocol === 'wss:' && !isSecureContext) {
-      // Keep secure websocket even on an insecure origin – browsers allow wss from http pages.
-    }
-    return parsed.toString();
+    return new URL(window.location.href);
   } catch (error) {
-    console.warn('Failed to normalize WebSocket URL', url, error);
-    if (typeof url === 'string') {
-      if (url.startsWith('wss://') || url.startsWith('ws://')) {
-        if (isSecureContext && url.startsWith('ws://')) {
-          return `wss://${url.slice('ws://'.length)}`;
-        }
-        return url;
-      }
-      if (url.startsWith('https://')) {
-        return `wss://${url.slice('https://'.length)}`;
-      }
-      if (url.startsWith('http://')) {
-        return isSecureContext ? `wss://${url.slice('http://'.length)}` : `ws://${url.slice('http://'.length)}`;
-      }
-      if (url.startsWith('//')) {
-        const protocol = isSecureContext ? 'wss:' : 'ws:';
-        return `${protocol}${url}`;
-      }
-    }
-    return url;
+    console.warn('Unable to resolve page base URL', error);
+    return null;
   }
+}
+
+export function buildWebSocketCandidates(rawUrl, { baseUrl } = {}) {
+  const seen = new Set();
+  const candidates = [];
+  const pageBase = getPageBaseUrl();
+  const fallbackHosts = new Set();
+  if (pageBase?.host) {
+    fallbackHosts.add(pageBase.host);
+  } else if (typeof window !== 'undefined' && window.location?.host) {
+    fallbackHosts.add(window.location.host);
+  }
+
+  if (baseUrl) {
+    try {
+      const parsedBase = new URL(baseUrl, pageBase || undefined);
+      if (parsedBase.host) {
+        fallbackHosts.add(parsedBase.host);
+      }
+    } catch (error) {
+      console.warn('Unable to parse base URL for WebSocket candidates', baseUrl, error);
+    }
+  }
+
+  let derivedPath = null;
+
+  const addNormalized = (resolvedUrl) => {
+    const normalized = resolvedUrl.toString();
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      candidates.push(normalized);
+    }
+  };
+
+  const addCandidate = (value) => {
+    if (!value || typeof value !== 'string') {
+      return;
+    }
+
+    let resolved;
+    try {
+      resolved = pageBase ? new URL(value, pageBase) : new URL(value);
+    } catch (error) {
+      if (value.startsWith('/') && pageBase) {
+        const secure = pageBase.protocol === 'https:';
+        addCandidate(`${secure ? 'wss' : 'ws'}://${pageBase.host}${value}`);
+        addCandidate(`${secure ? 'ws' : 'wss'}://${pageBase.host}${value}`);
+      }
+      return;
+    }
+
+    if (!derivedPath) {
+      derivedPath = `${resolved.pathname}${resolved.search || ''}`;
+    }
+    if (resolved.host) {
+      fallbackHosts.add(resolved.host);
+    }
+
+    const preferSecure = pageBase?.protocol === 'https:';
+
+    if (resolved.protocol === 'http:' || resolved.protocol === 'https:') {
+      const insecure = new URL(resolved.toString());
+      insecure.protocol = 'ws:';
+      addCandidate(insecure.toString());
+
+      const secure = new URL(resolved.toString());
+      secure.protocol = 'wss:';
+      addCandidate(secure.toString());
+      return;
+    }
+
+    if (resolved.protocol !== 'ws:' && resolved.protocol !== 'wss:') {
+      return;
+    }
+
+    const variants = [];
+    const toggled = new URL(resolved.toString());
+    toggled.protocol = resolved.protocol === 'ws:' ? 'wss:' : 'ws:';
+
+    if (preferSecure) {
+      if (resolved.protocol === 'wss:') {
+        variants.push(resolved, toggled);
+      } else {
+        variants.push(toggled, resolved);
+      }
+    } else {
+      variants.push(resolved, toggled);
+    }
+
+    variants.forEach((variant) => addNormalized(variant));
+  };
+
+  if (rawUrl) {
+    addCandidate(rawUrl);
+  }
+
+  if (baseUrl && rawUrl) {
+    try {
+      const combined = new URL(rawUrl, baseUrl);
+      addCandidate(combined.toString());
+    } catch (error) {
+      console.warn('Unable to combine WebSocket URL with base', rawUrl, baseUrl, error);
+    }
+  }
+
+  if (!derivedPath) {
+    if (rawUrl?.startsWith('/')) {
+      derivedPath = rawUrl;
+    } else {
+      derivedPath = '/upload';
+    }
+  }
+
+  fallbackHosts.forEach((host) => {
+    if (!host) return;
+    addCandidate(`ws://${host}${derivedPath}`);
+  });
+
+  if (!candidates.length && rawUrl) {
+    candidates.push(rawUrl);
+  }
+
+  return candidates;
+}
+
+export function normalizeWebSocketUrl(url, options) {
+  const candidates = buildWebSocketCandidates(url, options);
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+  return url;
 }
 
 function resolveCryptoGlobal() {
