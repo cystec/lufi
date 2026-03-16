@@ -1,4 +1,4 @@
-# Lufi's authors
+# Lufi's 
 
 ## Main developer 🤪
 
